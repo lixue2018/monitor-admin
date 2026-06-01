@@ -46,7 +46,7 @@ export const ERROR_MENUS: ReportMenuItem[] = [
     title: 'Promise 错误',
     group: 'error',
   },
-  { path: '/reports/vue-error', types: [REPORT_TYPE.VUE_ERROR], title: 'Vue 错误', group: 'error' },
+//   { path: '/reports/vue-error', types: [REPORT_TYPE.VUE_ERROR], title: 'Vue 错误', group: 'error' },
   {
     path: '/reports/resource-error',
     types: [REPORT_TYPE.RESOURCE_ERROR, LEGACY_REPORT_TYPE.RESOURCE],
@@ -56,7 +56,7 @@ export const ERROR_MENUS: ReportMenuItem[] = [
   {
     path: '/reports/api-error',
     types: [REPORT_TYPE.API_ERROR, LEGACY_REPORT_TYPE.XHR, LEGACY_REPORT_TYPE.FETCH],
-    title: 'API 错误',
+    title: '网络请求异常/API 错误',
     group: 'error',
   },
   {
@@ -71,19 +71,19 @@ export const ERROR_MENUS: ReportMenuItem[] = [
     title: '自定义事件',
     group: 'error',
   },
-  { path: '/reports/page-view', types: [REPORT_TYPE.PAGE_VIEW], title: '页面访问', group: 'error' },
+//   { path: '/reports/page-view', types: [REPORT_TYPE.PAGE_VIEW], title: '页面访问', group: 'error' },
   {
     path: '/reports/white-screen',
     types: [LEGACY_REPORT_TYPE.WHITE_SCREEN],
     title: '白屏检测',
     group: 'error',
   },
-  {
-    path: '/reports/record-screen',
-    types: [LEGACY_REPORT_TYPE.RECORD_SCREEN],
-    title: '录屏',
-    group: 'error',
-  },
+//   {
+//     path: '/reports/record-screen',
+//     types: [LEGACY_REPORT_TYPE.RECORD_SCREEN],
+//     title: '录屏',
+//     group: 'error',
+//   },
 ];
 
 export const PERFORMANCE_MENU: ReportMenuItem = {

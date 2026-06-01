@@ -27,13 +27,24 @@
         <el-descriptions-item label="User-Agent" :span="2">{{ detail.userAgent || '-' }}</el-descriptions-item>
       </el-descriptions>
 
-      <div class="section" v-if="isApiError && apiResponse">
-        <h4>响应体 (Response)</h4>
-        <pre class="code-block">{{ apiResponse }}</pre>
+      <div v-if="isApiError" class="section api-body-section">
+        <h4 class="section-title">请求 / 响应</h4>
+        <CollapsibleCodeBlock
+          title="请求体 (Request Body)"
+          name="request-body"
+          :content="apiRequestBody"
+          :default-expanded="true"
+        />
+        <CollapsibleCodeBlock
+          title="响应体 (Response Body)"
+          name="response-body"
+          :content="apiResponse"
+          :default-expanded="true"
+        />
       </div>
 
-      <div class="section" v-if="detail.stack || detail.message">
-        <h4>错误堆栈</h4>
+      <div class="section" v-if="!isApiError && (detail.stack || detail.message)">
+        <h4 class="section-title">错误堆栈</h4>
         <ErrorStackViewer
           :message="detail.message"
           :stack="detail.stack"
@@ -44,8 +55,13 @@
       </div>
 
       <div class="section">
-        <h4>原始上报数据</h4>
-        <pre class="code-block">{{ JSON.stringify(detail.data, null, 2) }}</pre>
+        <h4 class="section-title">原始上报数据</h4>
+        <CollapsibleCodeBlock
+          title="JSON 原文"
+          name="raw-json"
+          :content="rawJsonText"
+          :default-expanded="true"
+        />
       </div>
     </el-card>
   </div>
@@ -55,6 +71,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { getDetail, type ReportItem } from '@/api';
+import CollapsibleCodeBlock from '@/components/CollapsibleCodeBlock.vue';
 import ErrorStackViewer from '@/components/ErrorStackViewer.vue';
 import { formatResourceCategoryLabel } from '@/constants/reportTypes';
 
@@ -69,6 +86,21 @@ const isApiError = computed(() => {
   const t = detail.value?.type;
   return t ? API_ERROR_TYPES.has(t) : false;
 });
+
+function pickBody(data: Record<string, unknown> | undefined, keys: string[]): string {
+  if (!data) return '';
+  for (const key of keys) {
+    const v = data[key];
+    if (v == null) continue;
+    if (typeof v === 'string') return v.trim();
+    try {
+      return JSON.stringify(v, null, 2);
+    } catch {
+      return String(v);
+    }
+  }
+  return '';
+}
 
 /** 接口请求地址（与页面 URL 区分） */
 const apiRequestUrl = computed(() => {
@@ -96,11 +128,21 @@ const apiStatus = computed(() => {
   return s != null && s !== '' ? String(s) : '-';
 });
 
-const apiResponse = computed(() => {
-  const d = detail.value;
-  if (!d) return '';
-  const raw = (d.data?.response as string) || (d.data?.responseBody as string) || '';
-  return raw.trim();
+const apiRequestBody = computed(() =>
+  pickBody(detail.value?.data, ['requestBody', 'request', 'reqBody', 'body']),
+);
+
+const apiResponse = computed(() =>
+  pickBody(detail.value?.data, ['response', 'responseBody', 'resBody']),
+);
+
+const rawJsonText = computed(() => {
+  if (!detail.value?.data) return '';
+  try {
+    return JSON.stringify(detail.value.data, null, 2);
+  } catch {
+    return String(detail.value.data);
+  }
 });
 
 function goBack() {
@@ -137,20 +179,13 @@ onMounted(async () => {
 .section {
   margin-top: 20px;
 }
-.section h4 {
+.section-title {
   margin-bottom: 8px;
   color: #303133;
+  font-size: 14px;
+  font-weight: 600;
 }
-.code-block {
-  background: #1e1e1e;
-  color: #d4d4d4;
-  padding: 16px;
-  border-radius: 6px;
-  overflow: auto;
-  max-height: 400px;
-  font-size: 13px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-all;
+.api-body-section :deep(.collapsible-code-block + .collapsible-code-block) {
+  margin-top: 8px;
 }
 </style>
