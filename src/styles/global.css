@@ -1,0 +1,98 @@
+/**
+ * 全局公共样式
+ */
+
+/* ---------- 细滚动条（4px） ---------- */
+.monitorx-scrollbar,
+.layout .el-main.main,
+.layout .aside-menu-scroll,
+.el-table__body-wrapper,
+.el-scrollbar__wrap {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(144, 147, 153, 0.5) transparent;
+}
+
+.monitorx-scrollbar::-webkit-scrollbar,
+.layout .el-main.main::-webkit-scrollbar,
+.layout .aside-menu-scroll::-webkit-scrollbar,
+.el-table__body-wrapper::-webkit-scrollbar,
+.el-scrollbar__wrap::-webkit-scrollbar {
+  width: 4px !important;
+  height: 4px !important;
+}
+
+.monitorx-scrollbar::-webkit-scrollbar-track,
+.layout .el-main.main::-webkit-scrollbar-track,
+.layout .aside-menu-scroll::-webkit-scrollbar-track,
+.el-table__body-wrapper::-webkit-scrollbar-track,
+.el-scrollbar__wrap::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.monitorx-scrollbar::-webkit-scrollbar-thumb,
+.layout .el-main.main::-webkit-scrollbar-thumb,
+.layout .aside-menu-scroll::-webkit-scrollbar-thumb,
+.el-table__body-wrapper::-webkit-scrollbar-thumb,
+.el-scrollbar__wrap::-webkit-scrollbar-thumb {
+  background-color: rgba(144, 147, 153, 0.45) !important;
+  border-radius: 4px !important;
+  border: none !important;
+}
+
+.monitorx-scrollbar::-webkit-scrollbar-thumb:hover,
+.layout .el-main.main::-webkit-scrollbar-thumb:hover,
+.layout .aside-menu-scroll::-webkit-scrollbar-thumb:hover,
+.el-table__body-wrapper::-webkit-scrollbar-thumb:hover,
+.el-scrollbar__wrap::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(144, 147, 153, 0.75) !important;
+}
+
+/* 深色侧栏滚动条 */
+.monitorx-scrollbar--dark {
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+}
+
+.monitorx-scrollbar--dark::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.22) !important;
+}
+
+.monitorx-scrollbar--dark::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.38) !important;
+}
+
+/* Element Plus 内置滚动条轨道 */
+.el-scrollbar__bar.is-vertical {
+  width: 4px !important;
+  right: 1px !important;
+}
+
+.el-scrollbar__bar.is-horizontal {
+  height: 4px !important;
+}
+
+/* ---------- 布局：压缩留白 ---------- */
+.layout .el-main {
+  --el-main-padding: 10px 12px;
+}
+
+.layout .el-header {
+  --el-header-padding: 0 12px;
+  height: 56px;
+}
+
+/* 侧栏本身不滚动，避免 el-aside 默认宽滚动条 */
+.layout .el-aside.aside {
+  overflow: hidden;
+}
+
+/* 表格表头：完整展示，允许换行，不使用省略号 */
+.el-table th.el-table__cell > .cell {
+  white-space: normal;
+  word-break: break-word;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.35;
+}
+.el-table th.el-table__cell {
+  vertical-align: middle;
+}
