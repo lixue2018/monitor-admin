@@ -15,7 +15,7 @@
             <span class="frame-at">at</span>
             <span v-if="frame.functionName" class="frame-fn">{{ frame.functionName }}</span>
             <span class="frame-loc">
-              ({{ shortFileName(frame.file) }}:{{ frame.line }}:{{ frame.column }})
+              ({{ shortFileName(frame.file) }}:{{ displayLine(frame, index) }}:{{ displayColumn(frame, index) }})
             </span>
           </span>
         </template>
@@ -80,6 +80,7 @@ const props = defineProps<{
 const expanded = ref<(number | string)[]>([0]);
 const loadingIndex = ref<number | null>(null);
 const sourceMap = ref<Record<number, SourceLine[]>>({});
+const resolvedLoc = ref<Record<number, { line: number; column?: number }>>({});
 const loadErrors = ref<Record<number, string>>({});
 
 const parsed = computed(() => parseStackFrames(props.stack));
@@ -101,21 +102,36 @@ const frames = computed<ParsedStackFrame[]>(() => {
   return list;
 });
 
+function displayLine(frame: ParsedStackFrame, index: number): number | string {
+  return resolvedLoc.value[index]?.line ?? frame.line ?? '-';
+}
+
+function displayColumn(frame: ParsedStackFrame, index: number): number | string {
+  return resolvedLoc.value[index]?.column ?? frame.column ?? 0;
+}
+
 async function loadFrameSource(index: number, frame: ParsedStackFrame) {
   if (!frame.file || !frame.line || sourceMap.value[index]) return;
 
   loadingIndex.value = index;
   loadErrors.value[index] = '';
   try {
-    const lines = await fetchSourceContext(
+    const result = await fetchSourceContext(
       frame.file,
       frame.line,
       6,
       frame.column ?? props.column,
       displayMessage.value,
+      frame.functionName,
+      index === 0 ? props.line : undefined,
+      index === 0 ? props.column : undefined,
     );
-    if (lines?.length) {
-      sourceMap.value = { ...sourceMap.value, [index]: lines };
+    if (result?.lines.length) {
+      sourceMap.value = { ...sourceMap.value, [index]: result.lines };
+      resolvedLoc.value = {
+        ...resolvedLoc.value,
+        [index]: { line: result.line, column: result.column },
+      };
     } else {
       loadErrors.value[index] =
         '无法加载源码（请确认业务 dev 服务已启动，且 monitor-admin vite 已配置 /source-proxy 指向该端口）';

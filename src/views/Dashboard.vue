@@ -18,7 +18,7 @@
         >
           <div class="stat-label">{{ item.label }}</div>
           <div class="stat-value" :style="{ color: item.color }">{{ item.value }}</div>
-          <div class="stat-hint">点击查看</div>
+          <div class="stat-hint">{{ item.sub || '点击查看' }}</div>
         </el-card>
       </el-col>
     </el-row>
@@ -184,14 +184,16 @@ let trendByTypeMap: string[] = [];
 const statCards = computed(() => {
   const s = data.value?.summary;
   if (!s) return [];
+  const rangeLabel = `近 ${days.value} 天`;
   return [
-    { label: '区间内上报', value: s.totalInRange, color: '#409eff', to: DASHBOARD_STAT_ROUTES['区间内上报'] },
-    { label: '今日上报', value: s.todayCount, color: '#67c23a', to: DASHBOARD_STAT_ROUTES['今日上报'] },
-    { label: '错误类', value: s.errorCount, color: '#f56c6c', to: DASHBOARD_STAT_ROUTES['错误类'] },
-    { label: '性能类', value: s.performanceCount, color: '#e6a23c', to: DASHBOARD_STAT_ROUTES['性能类'] },
-    { label: 'API 错误', value: s.apiErrorCount, color: '#909399', to: DASHBOARD_STAT_ROUTES['API 错误'] },
+    { label: '区间内上报', sub: rangeLabel, value: s.totalInRange, color: '#409eff', to: DASHBOARD_STAT_ROUTES['区间内上报'] },
+    { label: '今日上报', sub: '今天', value: s.todayCount, color: '#67c23a', to: DASHBOARD_STAT_ROUTES['今日上报'] },
+    { label: '错误类', sub: rangeLabel, value: s.errorCount, color: '#f56c6c', to: DASHBOARD_STAT_ROUTES['错误类'] },
+    { label: '性能类', sub: rangeLabel, value: s.performanceCount, color: '#e6a23c', to: DASHBOARD_STAT_ROUTES['性能类'] },
+    { label: 'API 错误', sub: rangeLabel, value: s.apiErrorCount, color: '#909399', to: DASHBOARD_STAT_ROUTES['API 错误'] },
     {
       label: '慢接口 (>1s)',
+      sub: rangeLabel,
       value: s.apiSlowCount,
       color: '#b88230',
       to: DASHBOARD_STAT_ROUTES['慢接口 (>1s)'],

@@ -17,7 +17,7 @@
           <el-descriptions-item label="状态码">{{ apiStatus }}</el-descriptions-item>
         </template>
         <el-descriptions-item v-else label="文件">{{ detail.fileName || '-' }}</el-descriptions-item>
-        <el-descriptions-item v-if="!isApiError" label="行列">{{ detail.line || '-' }} : {{ detail.column || '-' }}</el-descriptions-item>
+        <el-descriptions-item v-if="!isApiError" label="行列">{{ displayLine }} : {{ displayColumn }}</el-descriptions-item>
         <el-descriptions-item label="页面 URL" :span="2">{{ detail.pageUrl || '-' }}</el-descriptions-item>
         <el-descriptions-item v-if="!isApiError && apiRequestUrl" label="接口 URL" :span="2">{{ apiRequestUrl }}</el-descriptions-item>
         <el-descriptions-item label="错误信息" :span="2">{{ detail.message || '-' }}</el-descriptions-item>
@@ -68,19 +68,55 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { getDetail, type ReportItem } from '@/api';
 import CollapsibleCodeBlock from '@/components/CollapsibleCodeBlock.vue';
 import ErrorStackViewer from '@/components/ErrorStackViewer.vue';
 import { formatResourceCategoryLabel } from '@/constants/reportTypes';
+import { fetchSourceContext, parseStackFrames } from '@/utils/errorStack';
 
 const route = useRoute();
 const router = useRouter();
 const loading = ref(false);
 const detail = ref<ReportItem | null>(null);
+const resolvedLine = ref<number>();
+const resolvedColumn = ref<number>();
 
 const API_ERROR_TYPES = new Set(['api_error', 'xhr', 'fetch']);
+
+const displayLine = computed(() => resolvedLine.value ?? detail.value?.line ?? '-');
+const displayColumn = computed(() => resolvedColumn.value ?? detail.value?.column ?? '-');
+
+async function resolveDetailLocation(row: ReportItem) {
+  resolvedLine.value = undefined;
+  resolvedColumn.value = undefined;
+
+  const frames = parseStackFrames(row.stack).frames;
+  const fileUrl = frames[0]?.file || row.fileName;
+  if (!fileUrl) return;
+
+  const result = await fetchSourceContext(
+    fileUrl,
+    frames[0]?.line ?? row.line ?? 0,
+    0,
+    frames[0]?.column ?? row.column,
+    row.message,
+    frames[0]?.functionName,
+    row.line,
+    row.column,
+  );
+  if (result) {
+    resolvedLine.value = result.line;
+    resolvedColumn.value = result.column;
+  }
+}
+
+watch(detail, (row) => {
+  if (row && !API_ERROR_TYPES.has(row.type)) {
+    resolveDetailLocation(row);
+  }
+});
 
 const isApiError = computed(() => {
   const t = detail.value?.type;

@@ -246,7 +246,6 @@ watch(
     query.page = 1;
     selectedIds.value = [];
     applyRouteQuery();
-    applyRouteQuery();
     fetchList();
   },
 );
