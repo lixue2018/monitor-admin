@@ -63,6 +63,7 @@
 import { computed, ref, watch } from 'vue';
 import {
   fetchSourceContext,
+  getSourceProxySetupHint,
   parseStackFrames,
   shortFileName,
   type ParsedStackFrame,
@@ -133,8 +134,7 @@ async function loadFrameSource(index: number, frame: ParsedStackFrame) {
         [index]: { line: result.line, column: result.column },
       };
     } else {
-      loadErrors.value[index] =
-        '无法加载源码（请确认业务 dev 服务已启动，且 monitor-admin vite 已配置 /source-proxy 指向该端口）';
+      loadErrors.value[index] = `无法加载源码。${getSourceProxySetupHint()}`;
     }
   } catch {
     loadErrors.value[index] = '源码请求失败，请检查 /source-proxy 代理配置';

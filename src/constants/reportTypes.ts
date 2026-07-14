@@ -78,12 +78,12 @@ export const ERROR_MENUS: ReportMenuItem[] = [
     title: '白屏检测',
     group: 'error',
   },
-//   {
-//     path: '/reports/record-screen',
-//     types: [LEGACY_REPORT_TYPE.RECORD_SCREEN],
-//     title: '录屏',
-//     group: 'error',
-//   },
+  {
+    path: '/reports/record-screen',
+    types: [LEGACY_REPORT_TYPE.RECORD_SCREEN],
+    title: '录屏',
+    group: 'error',
+  },
 ];
 
 export const PERFORMANCE_MENU: ReportMenuItem = {

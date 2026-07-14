@@ -45,13 +45,60 @@ export function parseStackFrames(stack?: string): {
   };
 }
 
-/** 开发环境源码 URL → monitor-admin 代理路径（规避 CORS） */
+/** monitor-admin 侧配置的业务 dev 地址（.env.development → VITE_SOURCE_PROXY_TARGET） */
+export function getConfiguredSourceProxyTarget(): string {
+  return import.meta.env.VITE_SOURCE_PROXY_TARGET || 'http://127.0.0.1:3002';
+}
+
+/** 源码加载失败时的配置提示 */
+export function getSourceProxySetupHint(): string {
+  const target = getConfiguredSourceProxyTarget();
+  return (
+    '请确认：① csl-new-front 已启动；② monitor-admin 用 npm run dev 运行（静态/preview 无代理时需改 .env）；'
+    + `③ fe-monitor/monitor-admin/.env.development 中 VITE_SOURCE_PROXY_TARGET=${target} 与业务端口一致，改后重启 admin。`
+  );
+}
+
+/** 相对路径堆栈补全为带端口的绝对 URL（用 VITE_SOURCE_PROXY_TARGET） */
+export function resolveDevFileUrl(fileUrl: string): string {
+  if (/^https?:\/\//i.test(fileUrl)) return fileUrl;
+  try {
+    const origin = new URL(getConfiguredSourceProxyTarget()).origin;
+    const qIdx = fileUrl.indexOf('?');
+    const pathPart = qIdx >= 0 ? fileUrl.slice(0, qIdx) : fileUrl;
+    const search = qIdx >= 0 ? fileUrl.slice(qIdx) : '';
+    const pathname = pathPart.startsWith('/') ? pathPart : `/src/pages/project/${pathPart}`;
+    return `${origin}${pathname}${search}`;
+  } catch {
+    return fileUrl;
+  }
+}
+
+/** 从报错 filename 解析本地 dev 服务 host:port（仅 localhost / 127.0.0.1） */
+export function getDevServerHostPort(fileUrl: string): { hostname: string; port: string } | null {
+  try {
+    if (!/^https?:\/\//i.test(fileUrl)) return null;
+    const u = new URL(fileUrl);
+    if (!/^(localhost|127\.0\.0\.1)$/i.test(u.hostname)) return null;
+    const port = u.port || (u.protocol === 'https:' ? '443' : '80');
+    return { hostname: u.hostname, port };
+  } catch {
+    return null;
+  }
+}
+
+/** 开发环境源码 URL → monitor-admin 代理路径（规避 CORS，保留报错页 dev 端口） */
 export function toSourceProxyUrl(fileUrl: string): string | null {
   try {
     if (/^https?:\/\//i.test(fileUrl)) {
       const u = new URL(fileUrl);
       if (!/^(localhost|127\.0\.0\.1)$/i.test(u.hostname)) return null;
-      return `/source-proxy${u.pathname}${u.search}`;
+      const port = u.port || (u.protocol === 'https:' ? '443' : '80');
+      const path = `${u.pathname}${u.search}`;
+      if (port && port !== '80' && port !== '443') {
+        return `/source-proxy/dev/${u.hostname}/${port}${path}`;
+      }
+      return `/source-proxy${path}`;
     }
     // 堆栈里可能是 /src/pages/.../me.vue 或 me.vue
     const qIdx = fileUrl.indexOf('?');
@@ -307,12 +354,20 @@ function parseViteRawModule(moduleText: string): string | null {
   }
 }
 
+function buildLocalDevFileUrl(fileUrl: string, pathname: string, search = ''): string {
+  const dev = getDevServerHostPort(fileUrl);
+  if (dev) {
+    return `http://${dev.hostname}:${dev.port}${pathname}${search}`;
+  }
+  return `http://127.0.0.1${pathname}${search}`;
+}
+
 /** 通过 Vite ?raw 拉取磁盘上的 .vue 原文（中文编码最可靠） */
 async function fetchRawVueSource(fileUrl: string): Promise<string | null> {
   const pathname = getVuePathname(fileUrl);
   if (!pathname?.endsWith('.vue')) return null;
 
-  const proxyUrl = toSourceProxyUrl(`http://127.0.0.1${pathname}?raw`);
+  const proxyUrl = toSourceProxyUrl(buildLocalDevFileUrl(fileUrl, pathname, '?raw'));
   if (!proxyUrl) return null;
 
   try {
@@ -466,10 +521,12 @@ function buildSourceLines(
 /** Vite 堆栈 URL 缺 query 时，补全 script 子模块参数以便拿到可映射的 source map */
 function ensureViteVueScriptUrl(fileUrl: string): string {
   try {
+    let origin = 'http://localhost';
     let pathname: string;
     let search: string;
     if (/^https?:\/\//i.test(fileUrl)) {
       const u = new URL(fileUrl);
+      origin = u.origin;
       pathname = u.pathname;
       search = u.search;
     } else {
@@ -479,7 +536,7 @@ function ensureViteVueScriptUrl(fileUrl: string): string {
       pathname = pathPart.startsWith('/') ? pathPart : `/src/pages/project/${pathPart}`;
     }
     if (!pathname.endsWith('.vue')) return fileUrl;
-    const u = new URL(`http://localhost${pathname}${search}`);
+    const u = new URL(`${origin}${pathname}${search}`);
     if (u.searchParams.has('vue') && u.searchParams.get('type') === 'script') {
       return u.toString();
     }
@@ -503,7 +560,8 @@ export async function fetchSourceContext(
   reportLine?: number,
   reportColumn?: number,
 ): Promise<SourceContextResult | null> {
-  const fetchUrl = ensureViteVueScriptUrl(fileUrl);
+  const absoluteFileUrl = resolveDevFileUrl(fileUrl);
+  const fetchUrl = ensureViteVueScriptUrl(absoluteFileUrl);
   const proxyUrl = toSourceProxyUrl(fetchUrl);
   if (!proxyUrl || (!stackLine && !reportLine)) return null;
 
@@ -511,11 +569,14 @@ export async function fetchSourceContext(
   if (!res.ok) return null;
 
   const generatedCode = await res.text();
-  const rawVue = await fetchRawVueSource(fileUrl);
+  const rawVue = await fetchRawVueSource(absoluteFileUrl);
   let sourceText = rawVue ?? extractVueSourceFromGenerated(generatedCode) ?? generatedCode;
   const scriptRange = getScriptLineRange(sourceText.split(/\r?\n/));
 
-  // 仅当 lineno 落在 <script> 内才信任（42 这类虚拟模块行号会落在 template，必须忽略）
+  const allLines = sourceText.split(/\r?\n/);
+  const prop = extractErrorPropertyName(message);
+
+  // 仅当 lineno 落在 <script> 内才考虑信任（42 这类虚拟模块行号会落在 template，必须忽略）
   const reportInScript =
     reportLine != null
     && reportLine > 0
@@ -523,17 +584,31 @@ export async function fetchSourceContext(
     && isLineInRange(reportLine, scriptRange);
 
   if (reportInScript) {
-    return {
-      line: reportLine!,
-      column: reportColumn ?? stackColumn,
-      lines: buildSourceLines(
-        sourceText.split(/\r?\n/),
+    const reportText = allLines[reportLine! - 1] ?? '';
+    const reportLineMatchesError =
+      !prop || reportText.includes(`.${prop}`);
+
+    if (reportLineMatchesError) {
+      const refined = refineErrorLocation(
+        sourceText,
         reportLine!,
-        radius,
         reportColumn ?? stackColumn,
         message,
-      ),
-    };
+        functionName,
+        scriptRange,
+      );
+      return {
+        line: refined.line,
+        column: refined.column ?? reportColumn ?? stackColumn,
+        lines: buildSourceLines(
+          allLines,
+          refined.line,
+          radius,
+          refined.column ?? reportColumn ?? stackColumn,
+          message,
+        ),
+      };
+    }
   }
 
   let errorLine = stackLine || reportLine || 0;
@@ -548,19 +623,21 @@ export async function fetchSourceContext(
     }
   }
 
+  const finalLines = sourceText.split(/\r?\n/);
+  const finalScriptRange = getScriptLineRange(finalLines);
+
   const refined = refineErrorLocation(
     sourceText,
     errorLine,
     errorColumn,
     message,
     functionName,
-    scriptRange,
+    finalScriptRange,
   );
 
-  const allLines = sourceText.split(/\r?\n/);
   return {
     line: refined.line,
     column: refined.column,
-    lines: buildSourceLines(allLines, refined.line, radius, refined.column, message),
+    lines: buildSourceLines(finalLines, refined.line, radius, refined.column, message),
   };
 }

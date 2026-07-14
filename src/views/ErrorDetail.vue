@@ -22,7 +22,19 @@
         <el-descriptions-item v-if="!isApiError && apiRequestUrl" label="接口 URL" :span="2">{{ apiRequestUrl }}</el-descriptions-item>
         <el-descriptions-item label="错误信息" :span="2">{{ detail.message || '-' }}</el-descriptions-item>
         <el-descriptions-item label="上报时间">{{ formatTime(detail.timestamp) }}</el-descriptions-item>
-        <el-descriptions-item label="录屏 ID">{{ detail.recordScreenId || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="录屏 ID">
+          <span>{{ detail.recordScreenId || '-' }}</span>
+          <el-button
+            v-if="detail.recordScreenId"
+            type="primary"
+            link
+            size="small"
+            style="margin-left: 8px"
+            @click="showRecordScreen = true"
+          >
+            播放录屏
+          </el-button>
+        </el-descriptions-item>
         <el-descriptions-item label="错误 UID" :span="2">{{ detail.errorUid || '-' }}</el-descriptions-item>
         <el-descriptions-item label="User-Agent" :span="2">{{ detail.userAgent || '-' }}</el-descriptions-item>
       </el-descriptions>
@@ -30,13 +42,13 @@
       <div v-if="isApiError" class="section api-body-section">
         <h4 class="section-title">请求 / 响应</h4>
         <CollapsibleCodeBlock
-          title="请求体 (Request Body)"
+          title="请求参数 (Request)"
           name="request-body"
           :content="apiRequestBody"
           :default-expanded="true"
         />
         <CollapsibleCodeBlock
-          title="响应体 (Response Body)"
+          title="响应参数 (Response)"
           name="response-body"
           :content="apiResponse"
           :default-expanded="true"
@@ -64,6 +76,12 @@
         />
       </div>
     </el-card>
+
+    <RecordScreenPlayer
+      v-if="detail?.recordScreenId"
+      v-model:visible="showRecordScreen"
+      :record-screen-id="detail.recordScreenId"
+    />
   </div>
 </template>
 
@@ -73,6 +91,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { getDetail, type ReportItem } from '@/api';
 import CollapsibleCodeBlock from '@/components/CollapsibleCodeBlock.vue';
 import ErrorStackViewer from '@/components/ErrorStackViewer.vue';
+import RecordScreenPlayer from '@/components/RecordScreenPlayer.vue';
 import { formatResourceCategoryLabel } from '@/constants/reportTypes';
 import { fetchSourceContext, parseStackFrames } from '@/utils/errorStack';
 
@@ -82,6 +101,7 @@ const loading = ref(false);
 const detail = ref<ReportItem | null>(null);
 const resolvedLine = ref<number>();
 const resolvedColumn = ref<number>();
+const showRecordScreen = ref(false);
 
 const API_ERROR_TYPES = new Set(['api_error', 'xhr', 'fetch']);
 
@@ -164,9 +184,18 @@ const apiStatus = computed(() => {
   return s != null && s !== '' ? String(s) : '-';
 });
 
-const apiRequestBody = computed(() =>
-  pickBody(detail.value?.data, ['requestBody', 'request', 'reqBody', 'body']),
-);
+const apiRequestBody = computed(() => {
+  const text = pickBody(detail.value?.data, [
+    'requestParams',
+    'requestBody',
+    'request',
+    'reqBody',
+    'body',
+  ]);
+  if (text) return text;
+  const url = apiRequestUrl.value;
+  return url ? JSON.stringify({ url }, null, 2) : '';
+});
 
 const apiResponse = computed(() =>
   pickBody(detail.value?.data, ['response', 'responseBody', 'resBody']),
